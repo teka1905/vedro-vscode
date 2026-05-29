@@ -31,9 +31,13 @@ export class TestExplorer {
 
         for (const folder of folders) {
             const pattern = testRoot === '.' ? '**/*.py' : `${testRoot}/**/*.py`;
+            // Pass `undefined` (not `null`) so that default excludes
+            // (files.exclude / search.exclude) are respected. Otherwise
+            // when vedro.testRoot = "." the whole workspace gets scanned,
+            // including .venv / __pycache__ / node_modules, etc.
             const pyFiles = await vscode.workspace.findFiles(
                 new vscode.RelativePattern(folder, pattern),
-                null
+                undefined
             );
             for (const uri of pyFiles) {
                 await this.discoverTests(uri);
@@ -83,7 +87,7 @@ export class TestExplorer {
     private getTestRootFolder(file: vscode.Uri): string {
         const projectFolder = vscode.workspace.getWorkspaceFolder(file)?.uri.fsPath || '.';
         const config = vscode.workspace.getConfiguration();
-        const testRootFolder = config.get<string>('vedro.testRoot', 'scenarios');
+        const testRootFolder = config.get<string>('vedro.testRoot', '.');
         return path.join(projectFolder, testRootFolder);
     }
 
