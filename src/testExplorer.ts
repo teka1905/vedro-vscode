@@ -28,9 +28,20 @@ export class TestExplorer {
 
         const config = vscode.workspace.getConfiguration();
         const testRoot = config.get<string>('vedro.testRoot', '.');
+        // Normalize testRoot: strip ./, leading/trailing slashes, convert
+        // backslashes to forward slashes. Reject absolute paths.
+        const normalizedRoot = testRoot
+            .replace(/\\/g, '/')
+            .replace(/^\.\/+/, '')
+            .replace(/^\/+|\/+$/g, '');
+        if (path.isAbsolute(normalizedRoot)) {
+            return;
+        }
 
         for (const folder of folders) {
-            const pattern = testRoot === '.' ? '**/*.py' : `${testRoot}/**/*.py`;
+            const pattern = (!normalizedRoot || normalizedRoot === '.')
+                ? '**/*.py'
+                : `${normalizedRoot}/**/*.py`;
             // Pass `undefined` (not `null`) so that default excludes
             // (files.exclude / search.exclude) are respected. Otherwise
             // when vedro.testRoot = "." the whole workspace gets scanned,
@@ -93,7 +104,12 @@ export class TestExplorer {
 
     private isUnderTestRoot(file: vscode.Uri): boolean {
         const root = this.getTestRootFolder(file);
-        const rel = path.relative(root, file.fsPath);
-        return !rel.startsWith('..') && !path.isAbsolute(rel);
+        const caseInsensitive = process.platform === 'win32' || process.platform === 'darwin';
+        const rootCmp = caseInsensitive ? root.toLowerCase() : root;
+        const fileCmp = caseInsensitive ? file.fsPath.toLowerCase() : file.fsPath;
+        const rel = path.relative(rootCmp, fileCmp);
+        // Reject paths outside root (start with '..') or absolute (different drive on Windows).
+        // Empty `rel` means file === root, which is not a file under the root either.
+        return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
     }
 }
