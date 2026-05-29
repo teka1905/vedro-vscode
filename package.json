@@ -13,7 +13,9 @@
     "Testing"
   ],
   "activationEvents": [
-    "workspaceContains:**/*.py"
+    "onStartupFinished",
+    "workspaceContains:**/*.py",
+    "onLanguage:python"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -45,7 +47,7 @@
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "yarn run compile && npx vsce package",
+    "package": "yarn run compile && vsce package",
     "pretest": "yarn run compile && yarn run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test"
