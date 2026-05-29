@@ -23,9 +23,9 @@ export async function activate(context: vscode.ExtensionContext) {
         await testExplorer.discoverAllInWorkspace();
     };
 
-    for (const document of vscode.workspace.textDocuments) {
-        await testExplorer.discoverTests(document.uri);
-    }
+    await Promise.all(
+        vscode.workspace.textDocuments.map(document => testExplorer.discoverTests(document.uri)),
+    );
 
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(document => testExplorer.discoverTests(document.uri)),

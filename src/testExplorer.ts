@@ -19,7 +19,7 @@ export class TestExplorer {
         this.updateTestItems(file, testItems);
     }
 
-    /** Discover tests in all Python files under scenarios (or vedro.testRoot). Used by resolveHandler when Test Explorer is opened. */
+    /** Discover tests under vedro.testRoot. Used by resolveHandler when Test Explorer is opened. */
     public async discoverAllInWorkspace(): Promise<void> {
         const folders = vscode.workspace.workspaceFolders;
         if (!folders?.length) {
@@ -28,32 +28,29 @@ export class TestExplorer {
 
         const config = vscode.workspace.getConfiguration();
         const testRoot = config.get<string>('vedro.testRoot', '.');
-        // Normalize testRoot: strip ./, leading/trailing slashes, convert
-        // backslashes to forward slashes. Reject absolute paths.
+        // RelativePattern requires a workspace-relative path; check the raw value.
+        if (path.isAbsolute(testRoot)) {
+            vscode.window.showWarningMessage(
+                `vedro.testRoot must be a workspace-relative path, got "${testRoot}". Test discovery skipped.`
+            );
+            return;
+        }
         const normalizedRoot = testRoot
             .replace(/\\/g, '/')
             .replace(/^\.\/+/, '')
             .replace(/^\/+|\/+$/g, '');
-        if (path.isAbsolute(normalizedRoot)) {
-            return;
-        }
 
-        for (const folder of folders) {
+        await Promise.all(folders.map(async folder => {
             const pattern = (!normalizedRoot || normalizedRoot === '.')
                 ? '**/*.py'
                 : `${normalizedRoot}/**/*.py`;
-            // Pass `undefined` (not `null`) so that default excludes
-            // (files.exclude / search.exclude) are respected. Otherwise
-            // when vedro.testRoot = "." the whole workspace gets scanned,
-            // including .venv / __pycache__ / node_modules, etc.
+            // `undefined` (not `null`) keeps default files.exclude / search.exclude active.
             const pyFiles = await vscode.workspace.findFiles(
                 new vscode.RelativePattern(folder, pattern),
                 undefined
             );
-            for (const uri of pyFiles) {
-                await this.discoverTests(uri);
-            }
-        }
+            await Promise.all(pyFiles.map(uri => this.discoverTests(uri)));
+        }));
     }
 
     private async getTestItemsFromFile(file: vscode.Uri): Promise<vscode.TestItem[]> {
@@ -108,8 +105,6 @@ export class TestExplorer {
         const rootCmp = caseInsensitive ? root.toLowerCase() : root;
         const fileCmp = caseInsensitive ? file.fsPath.toLowerCase() : file.fsPath;
         const rel = path.relative(rootCmp, fileCmp);
-        // Reject paths outside root (start with '..') or absolute (different drive on Windows).
-        // Empty `rel` means file === root, which is not a file under the root either.
         return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
     }
 }
