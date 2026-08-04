@@ -15,13 +15,17 @@ export async function activate(context: vscode.ExtensionContext) {
         testRunner.runTests(request, token);
         testRun.end();
     };
-    testController.createRunProfile('Run', vscode.TestRunProfileKind.Run, runHandler, !!'isDefault');
+    testController.createRunProfile('Run', vscode.TestRunProfileKind.Run, runHandler, true);
 
     const testExplorer = new TestExplorer(testController);
 
-    for (const document of vscode.workspace.textDocuments) {
-        await testExplorer.discoverTests(document.uri);
-    }
+    testController.resolveHandler = async () => {
+        await testExplorer.discoverAllInWorkspace();
+    };
+
+    await Promise.all(
+        vscode.workspace.textDocuments.map(document => testExplorer.discoverTests(document.uri)),
+    );
 
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(document => testExplorer.discoverTests(document.uri)),
