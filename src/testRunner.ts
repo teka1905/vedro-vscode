@@ -1,5 +1,6 @@
 import vscode from 'vscode';
 import Terminal from './terminal';
+import { getTestItemData } from './testItemData';
 
 export class TestRunner {
     private terminal: Terminal;
@@ -128,6 +129,23 @@ export class TestRunner {
     }
 
     private formatTestItems(testItems: readonly vscode.TestItem[]): string {
-        return testItems.map(testItem => `"${testItem.id}"`).join(' ');
+        const selectedItems = testItems.filter(testItem => {
+            return !testItems.some(other => other !== testItem && this.isAncestor(other, testItem));
+        });
+        const selectors = new Set(
+            selectedItems.map(testItem => getTestItemData(testItem)?.selector ?? testItem.id),
+        );
+        return Array.from(selectors).map(selector => `"${selector}"`).join(' ');
+    }
+
+    private isAncestor(candidate: vscode.TestItem, testItem: vscode.TestItem): boolean {
+        let parent = testItem.parent;
+        while (parent) {
+            if (parent === candidate) {
+                return true;
+            }
+            parent = parent.parent;
+        }
+        return false;
     }
 }
