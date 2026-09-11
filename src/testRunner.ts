@@ -1,3 +1,4 @@
+import path from 'path';
 import vscode from 'vscode';
 import Terminal from './terminal';
 import { getTestItemData } from './testItemData';
@@ -15,7 +16,7 @@ export class TestRunner {
         const testRootDir = config.get<string>('vedro.testRoot', '.');
 
         const cmd = this.buildCommand(request, runOptions);
-        this.terminal.runCmd(cmd, testRootDir);
+        this.terminal.runCmd(cmd, this.getWorkingDirectory(request, testRootDir));
     }
 
     public async debugTests(request: vscode.TestRunRequest, token: vscode.CancellationToken): Promise<void> {
@@ -28,7 +29,7 @@ export class TestRunner {
         const options = debugOptions || runOptions;
         const baseCmd = this.buildCommand(request, options);
         const cmd = `python -m debugpy --listen ${debugPort} --wait-for-client -m ${baseCmd}`;
-        this.terminal.runCmd(cmd, testRootDir);
+        this.terminal.runCmd(cmd, this.getWorkingDirectory(request, testRootDir));
 
         if (token.isCancellationRequested) {
             return;
@@ -126,6 +127,26 @@ export class TestRunner {
             cmd += ` ${runOptions}`;
         }
         return cmd;
+    }
+
+    private getWorkingDirectory(request: vscode.TestRunRequest, configuredTestRoot: string): string {
+        const requestedItems = request.include?.length ? request.include : request.exclude;
+        if (requestedItems) {
+            for (const testItem of requestedItems) {
+                const workDir = getTestItemData(testItem)?.workDir;
+                if (workDir) {
+                    return workDir;
+                }
+            }
+        }
+
+        if (path.isAbsolute(configuredTestRoot)) {
+            return configuredTestRoot;
+        }
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        return workspaceFolder
+            ? path.join(workspaceFolder.uri.fsPath, configuredTestRoot)
+            : configuredTestRoot;
     }
 
     private formatTestItems(testItems: readonly vscode.TestItem[]): string {

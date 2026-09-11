@@ -6,6 +6,7 @@ export type TestItemKind = 'workspace' | 'directory' | 'file' | 'scenario';
 export interface TestItemData {
     kind: TestItemKind;
     selector: string;
+    workDir: string;
 }
 
 const testItemData = new WeakMap<vscode.TestItem, TestItemData>();

@@ -83,6 +83,7 @@ export class TestExplorer {
     private createScenarioItem(
         file: vscode.Uri,
         rootId: string,
+        testRoot: string,
         relPath: string,
         scenario: DiscoveredScenario,
     ): vscode.TestItem {
@@ -94,7 +95,7 @@ export class TestExplorer {
         );
         testItem.range = new vscode.Range(scenario.lineNumber, 0, scenario.lineNumber, 0);
         testItem.sortText = `2:${scenario.className}`;
-        setTestItemData(testItem, { kind: 'scenario', selector });
+        setTestItemData(testItem, { kind: 'scenario', selector, workDir: testRoot });
         return testItem;
     }
 
@@ -111,7 +112,7 @@ export class TestExplorer {
         const rootId = vscode.Uri.file(testRoot).toString();
         const relPath = this.normalizePath(path.relative(testRoot, file.fsPath));
         const directoryPath = path.posix.dirname(relPath);
-        const treeRoot = this.ensureWorkspaceRoot(file, rootId);
+        const treeRoot = this.ensureWorkspaceRoot(file, rootId, testRoot);
         const parent = this.ensureDirectoryPath(testRoot, rootId, directoryPath, treeRoot);
         const fileId = `file:${rootId}:${relPath}`;
 
@@ -125,14 +126,14 @@ export class TestExplorer {
             fileItem.sortText = `1:${fileItem.label}`;
             parent.collection.add(fileItem);
         }
-        setTestItemData(fileItem, { kind: 'file', selector: relPath });
+        setTestItemData(fileItem, { kind: 'file', selector: relPath, workDir: testRoot });
         fileItem.children.replace(
-            scenarios.map(scenario => this.createScenarioItem(file, rootId, relPath, scenario)),
+            scenarios.map(scenario => this.createScenarioItem(file, rootId, testRoot, relPath, scenario)),
         );
         this.fileItems.set(file.fsPath, fileItem);
     }
 
-    private ensureWorkspaceRoot(file: vscode.Uri, rootId: string): TestItemParent {
+    private ensureWorkspaceRoot(file: vscode.Uri, rootId: string, testRoot: string): TestItemParent {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(file);
         if (!workspaceFolder) {
             return { collection: this.testController.items, item: undefined };
@@ -147,7 +148,7 @@ export class TestExplorer {
                 workspaceFolder.uri,
             );
             workspaceItem.sortText = `0:${workspaceItem.label}`;
-            setTestItemData(workspaceItem, { kind: 'workspace', selector: '.' });
+            setTestItemData(workspaceItem, { kind: 'workspace', selector: '.', workDir: testRoot });
             this.testController.items.add(workspaceItem);
         }
 
@@ -176,7 +177,7 @@ export class TestExplorer {
                 const directoryUri = vscode.Uri.file(path.join(testRoot, ...segments.slice(0, index + 1)));
                 directoryItem = this.testController.createTestItem(directoryId, segments[index], directoryUri);
                 directoryItem.sortText = `0:${directoryItem.label}`;
-                setTestItemData(directoryItem, { kind: 'directory', selector });
+                setTestItemData(directoryItem, { kind: 'directory', selector, workDir: testRoot });
                 collection.add(directoryItem);
             }
             parent = directoryItem;
